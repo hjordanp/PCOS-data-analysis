@@ -1,0 +1,461 @@
+---
+title: "Práctica 2: Limpieza y Análisis de Datos - Síndrome de Ovario Poliquístico"
+author: "Helene Jordan"
+date: "Enero 2020"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: darkly
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+---
+
+# Descripción del Dataset 
+El dataset escogido para esta práctica recoge información médica de <a href="#">541 pacientes</a>. Esta información se ha recogido en diferentes hospitales de Kerala, India. Todos los pacientes son mujeres y la clasificación principal es la determinación de la presencia del <abbr title="attribute">Síndrome de Ovario Poliquístico (PCOS en inglés)</abbr>.
+
+Este dataset contiene las siguientes <a href="#">43 variables</a>:
+- Sl. No: index number
+- Patient File No.: patient's file's number
+- PCOS (Y/N): presence or absence of PCOS
+- Age (yrs): age in years
+- Weight (Kg): weight in kg
+- Height(Cm): height in cm
+- BMI: Body Mass Indice
+- Blood Group: blood group
+- Pulse rate(bpm): pulse rate in bpm
+- RR (breaths/min): Respiratory rate
+- Hb(g/dl): hemoglobine
+- Cycle(R/I): menstrual cycle
+- Cycle length(days): length of menstrual cycle in days
+- Marraige Status (Yrs): number of marriage years
+- Pregnant(Y/N): presence or absence of pregnancy
+- No. of aborptions: number of aborptions
+- FSH(mIU/mL): level of hormone FSH
+- LH(mIU/mL): level of hormone LH (luteinizing hormone)
+- FSH/LH: follicle stimulating hormone
+- Hip(inch): size of hip
+- Waist(inch): size of waist
+- Waist:Hip Ratio: ratio between hip and waist
+- TSH (mIU/L): level of TSH (thyroid stimulating hormone)
+- AMH(ng/mL): level of Anti-Müllerian hormone (AMH)
+- PRL(ng/mL): level or prolactine
+- Vit D3 (ng/mL): level of vitamin D3
+- PRG(ng/mL): level of progesterone
+- RBS(mg/dl): random blood sugar
+- Weight gain(Y/N): presence or absence of weight gain
+- hair growth(Y/N): presence or absence of hair growth 
+- Skin darkening (Y/N): presence or absence of skin darkening
+- Hair loss(Y/N): presence or absence of hair loss
+- Pimples(Y/N): presence or absence of pimples
+- Fast food (Y/N): if the patient has been eating fast food
+- Reg.Exercise(Y/N): presence or absence of regular exercises
+- BP _Systolic (mmHg): systolic blood pressure
+- BP _Diastolic (mmHg): diastolic blood pressure
+- Follicle No. (L): number of follicles on the left ovary
+- Follicle No. (R): number of follicles on the right ovary
+- Avg. F size (L) (mm): average size in mm of the follicles on the left ovary
+- Avg. F size (R) (mm): average size in mm of the follicles on the right ovary
+- Endometrium (mm): size of endometrium in mm
+
+## PCOS
+El PCOS es un desorden dentro del aparato reproductivo femenino que implica ciclos menstruales infrecuentes, irregulares y prolongados. Muchas veces viene acompañado de exceso de hormonas masculinas. Los ovarios con este síndrome desarrollan pequeñas acumulaciones de líquidos (llamados folículos) y no consiguen liberar regularmente los óvulos. 
+
+No existe prueba médica definitiva para la detección del POCS a día de hoy, sin embargo, se suele hacer una exploración física por radiografía para identificar los folículos dentro del ovario así como orientarse mediante las respuestas a una serie de preguntas sobre el ciclo menstrual de la paciente. 
+El tratamiento de este síndrome tampoco elimina los síntomas, sino que, en ocasiones los hace dismunuir. Se suele recomendar un cambio en el estilo de vida y la toma de píldoras anticonceptivas para poder regular los ciclos y hacer desaparecer los síntomas asociados al síndrome (dolor abdominal, acné, desregulación hormonal entre muchos otros que varían de paciente a paciente).
+
+## Objetivo de la práctica
+Este síndrome es más común de lo que podría parecer, ya que afecta a 1 de entre 10 mujeres; por lo que sería de gran interés, descubrir tanto las causas como los síntomas que pueden determinar un diagnóstico eficaz para aplicar un tratamiento lo más adecuado posible. 
+
+<p class="text-warning">El obejtivo de esta práctica será entonces determinar las características sociodemográficas, pero sobre, todo médicas que determinen la existencia de PCOS; por lo tanto, determinar qué factores ayudan al correcto diagnóstico de este síndrome.</p>
+
+Este objetivo a cumplir es de gran importancia para el sector médico, ya que cuanta más precisión en el diagnóstico de un paciente, mejor y más específico podrá ser el tratamiento además de que contribuirá a la investigación dentro de las posibles causas de la aparición de este síndrome. 
+
+```{r setup, include=FALSE}
+library(rmarkdown)
+library(prettydoc)
+library(dplyr)
+library(tidyr)
+library(BBmisc)
+library(ggbiplot)
+library(C50)
+library(caret)
+library(gmodels)
+library(corrplot)
+library(Hmisc)
+```
+
+# Limpieza de datos
+
+## Importación del dataset
+El primer paso será importar los datos desde el archivo csv descargado del repositorio de datos Kaggle.
+```{r}
+df <- read.csv(file='csv/initial_data.csv', sep= ',')
+head(df)
+```
+
+## Limpieza de valores nulos o perdidos
+En primer lugar, veremos si existen datos perdidos dentro de cada variable.
+
+```{r}
+colSums(is.na(df)|df == '')
+```
+Vemos efectivamente que existen datos perdidos para las variables de años de matrimonio y para la consumición de fast food. En cada caso existe un valor perdido.
+
+En el caso de los años de matrimonio seguiremos la estrategia de reemplazar el valor perdido por la mediana de la muestra; de esta manera, como no sabemos cuántos outliers tiene el dataset para esta variable, evitaremos que la media sea sesgada por esos posibles valores extremos. La mediana nos proporcionará un valor más ajustado a la tendencia central sin verse afectada por esos extremos.
+
+En el caso del fast food, como se trata de una variable dicotómica, no tendría sentido reemplazar el valor por la media ya que la variable no acepta valores con decimales. Es por ello que también seguiremos la estrategia de escoger la mediana como indicador de tendencia central y reemplazaremos el valor perdido por este indicador.
+
+Por otra parte, en la variable final (X) existen 539 valores perdidos de 541. Vemos por inspección visual que la variable está vacía, por lo que procederemos a eliminarla.
+
+```{r}
+# Sustitución de los valores perdidos por la mediana de la muestra.
+df$Marraige.Status..Yrs.[is.na(df$Marraige.Status..Yrs.)] <- median(df$Marraige.Status..Yrs., na.rm=TRUE)
+df$Fast.food..Y.N.[is.na(df$Fast.food..Y.N.)] <- median(df$Fast.food..Y.N., na.rm=TRUE)
+```
+
+```{r}
+# Recreamos el dataframe eliminando la última columna que corresponde a una columna con datos vacíos.
+df <- df[,c(1:42)]
+```
+
+Veamos ahora si todos los datos contienen valores que encajan en cada una de las variables.
+
+```{r}
+str(df)
+```
+Vemos que la variable AMH.ng.mL. está definida como una variable categórica; sin embargo, por lógica, esta variable debería ser numérica puesto que está describiendo el nivel de una hormona en sangre. Además vemos que los primeros valores que se nos muestran son, efectivamente, numéricos. 
+
+Observemos esta variable para saber si hay algún dato en string, y cambiar el formato a numérico. 
+
+```{r}
+df$AMH.ng.mL. <- as.numeric(as.character(df$AMH.ng.mL.))
+```
+Puesto que hemos recibido el warning de que se han introducido NAs por coerción, intuimos que hay una valor string introducido para un valor perdido. En este caso, también reemplazaremos este valor nulo por la mediana de la variable. 
+
+```{r}
+df$AMH.ng.mL.[is.na(df$AMH.ng.mL.)] <- median(df$AMH.ng.mL., na.rm=TRUE)
+```
+
+## Análisis descriptivo para detectar valores extremos
+
+Los valores extremos, bien que comunes en la vida real, suelen distorsionar las muestras estadísticas si existen en demasía. Por lo que es muy importante detercarlos y tomar una decisión sobre su presencia o eliminación de la muestra.
+
+En primer lugar, mostraremos los histogramas de las variables cuantitativas para observar qué variable sparecen tener más o menos outliers. 
+
+### Histogramas para las variables cuantitativas
+```{r}
+df %>%
+  gather(Attributes, value, c(4:7, 9:14, 16:17)) %>%
+ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="black", show.legend=FALSE, bins = 10) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Histograms of dimensions",
+       subtitle="Histograms") +
+  theme_bw()
+```
+
+```{r}
+df %>%
+  gather(Attributes, value, c(18:28)) %>%
+ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="black", show.legend=FALSE, bins = 10) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Histograms of dimensions",
+       subtitle="Histograms") +
+  theme_bw()
+```
+
+```{r}
+df %>%
+  gather(Attributes, value, c(36:42)) %>%
+ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="black", show.legend=FALSE, bins = 10) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Histograms of dimensions",
+       subtitle="Histograms") +
+  theme_bw()
+```
+
+Veamos ahora, de las variables cuantitativas, las que, por inspección visual nos han parecido tener más outliers y veamos qué decisión debemos tomar al respecto con cada una de las variables. 
+```{r}
+par(mfrow = c(2,3))
+list = list(13, 25, 40, 41, 42)
+for (i in list){
+  boxplot(df[,i], main = colnames(df)[i], width = 100)
+}
+```
+En primer lugar, para el número de días del ciclo todos los valores son posibles puesto que los ciclos menstruales varían mucho entre mujeres.
+En segundo lugar, el nivel de prolactina, vemos que tiene muchos outliers. En este caso, la prolactina es una hormona que varía durante el ciclo menstrual por lo que es normal que exista mucha varianza en los datos.
+En tercer lugar, el tamaño de los folículos también es normal que varíe, en este caso va de 0 a 30 aproximadamente, por lo que se puede dar el caso de que no existan folículos y que por lo tanto su tamaño sea 0.
+Lo mismo pasa con el tamaño de los folículos en el ovario derecho.
+Por último, el endometrio es un tejido que recubre la pared del útero. Pero el tamaño de este tejido varía a lo largo del ciclo; por lo que es normal que hayan valores en los que tengamos 0mm de endometrio o bien 18mm.
+
+Siguiendo este planteamiento, vemos que los valores extremos encontrados no corresponden realmente a valores que haya que eliminar porque tienen congruencia con los datos. 
+
+### Tablas de frecuencia para las variables cualitativas
+Una vez ejecutados los histogramas, veamos por parte de las variables cualitativas (categóricas) si hay algún valor que no esté dentro del rango de los posibles valores de cada variable. 
+```{r}
+table(df$PCOS..Y.N.)
+table(df$Pregnant.Y.N.)
+table(df$Blood.Group)
+table(df$Weight.gain.Y.N.)
+table(df$hair.growth.Y.N.)
+table(df$Skin.darkening..Y.N.)
+table(df$Hair.loss.Y.N.)
+table(df$Pimples.Y.N.)
+table(df$Fast.food..Y.N.)
+table(df$Reg.Exercise.Y.N.)
+```
+Vemos que todos los booleanos contienen dos valores y que con respecto al tipo de sangre, existen 8 valores, los cuales corresponderían a los 8 grupos sanguíneos existentes. 
+
+# Análisis de datos
+
+## Normalidad
+Veamos primero los gráficos Q-Q para ver si las variables siguen o no una disfribución normal. 
+```{r}
+df_numeric_cols <- df[,c(4:7, 9:14, 16:28, 36:42)]
+for (i in 1:ncol(df_numeric_cols)) {
+  qqnorm(df_numeric_cols[,i], main = paste("Normal Q-Q Plot for ", colnames(df_numeric_cols)[i]))
+  qqline(df_numeric_cols[,i], col= 'green')
+}
+```
+
+Comprobemos la normalidad con la prueba de Shapiro-Wilk. 
+```{r}
+for (i in 1:ncol(df_numeric_cols)){
+  print(shapiro.test(df[,i]))
+}
+```
+
+Vemos gracias a estas dos pruebas estadísticas que ninguna de las variables numéricas está normalizada. Sin embargo, realizaremos la normalización debido a que por el teorema del límite central, se asume que se se pueden normalizar los datos de una muestra superior a 30 registros con valores de media 0 y de desviación estándar 1.
+
+Deberemos refactorizar las variables que no queremos que sean normalizadas (en este caso, las categóricas y los índices de los pacientes y sus informes).
+```{r} 
+df_norm <- df%>%
+  mutate(PCOS..Y.N. = as.factor(PCOS..Y.N.),
+         Pregnant.Y.N. = as.factor(Pregnant.Y.N.),
+         Weight.gain.Y.N. = as.factor(Weight.gain.Y.N.),
+         hair.growth.Y.N. = as.factor(hair.growth.Y.N.),
+         Skin.darkening..Y.N. = as.factor(Skin.darkening..Y.N.),
+         Hair.loss.Y.N. = as.factor(Hair.loss.Y.N.),
+         Pimples.Y.N. = as.factor(Pimples.Y.N.),
+         Fast.food..Y.N. = as.factor(Fast.food..Y.N.),
+         Reg.Exercise.Y.N. = as.factor(Reg.Exercise.Y.N.),
+         Blood.Group = as.factor(Blood.Group),
+         Age..yrs. = as.factor(Age..yrs.),
+         Patient.File.No. = as.factor(Patient.File.No.),
+         Sl..No = as.factor(Sl..No)
+)
+```
+
+Una vez refactorizadas las variables, deberemos normalizar solamente las variables numéricas. 
+```{r}
+df_norm <- df_norm %>%
+    mutate_if(is.numeric, scale)
+```
+
+Una vez normalizadas las numéricas, volvemos a transformar todas la variables del dataset a numéricas. De esta manera, tenemos dos tablas finales: una tabla con los datos originales del dataset limpiados; y por otro lado, una talba con los valores de las variables numéricas normalizados. 
+```{r}
+df_norm[] <- lapply(df_norm, function(x) as.numeric(x))
+```
+```{r}
+summary(df_norm)
+```
+
+
+
+## PCA: reducción de dimensionalidad
+Una vez normalizadas las variables, podemos ejecutar un PCA. Esta prueba es muy útil cuando tratamos con un dataset con muchas variables y queremos realizar una reducción de dimensionalidad. Esta prueba comprueba que haya algún tipo de relación entre las variables que contiene el dataset y elabora una serie de componentes principales que tratan de explicar un tanto por ciento del comportamiento de las variables originales. 
+```{r}
+# Utilizamos la función prcomp para realizar el PCA. 
+df_norm.pca <- prcomp(df_norm[,4:42], center = TRUE,scale. = TRUE)
+
+# Utilizamos la función summary() para explorar las proporciones de variancia de cada componente principal.
+summary(df_norm.pca)
+```
+
+Vemos que, el PCA no ayuda a reducir la dimensionalidad del dataset puesto que el componente principal que explica la mayor proporción de variancia solamente describe un 11%, por lo que no es suficiente para determinar el comportamiento de los datos. De ma misma manera ocurre con los otros componentes ya que el modelo ha obtenido 39 componentes de 39 variables observadas, por lo que no hay ninguna agrupacion posible de componentes que expliquen la variación dentro de los datos. 
+
+Por lo tanto, seguiremos utilizando todas las variables iniciales. 
+Veamos a continuación un ejemplo de visualización del análisis de componentes principales. 
+```{r}
+# remotes::install_github('vqv/ggbiplot')
+# https://www.rdocumentation.org/packages/ggbiplot/versions/0.55/topics/ggbiplot 
+
+# Para el plot haremos que los puntos sean transparentes, mostraremos las elipses en función de los grupos.
+ggbiplot(df_norm.pca, alpha = 0.1, ellipse=TRUE, groups=df_norm$PCOS..Y.N., obs.scale = 2, var.scale = 2)
+```
+
+Guardemos pues los dos datasets que hemos recogido. Uno normalizado y el otro con los datos originales tratando los valores perdidos.
+```{r}
+write.csv(df, file = 'csv/cleaned_data.csv', row.names = FALSE)
+write.csv(df_norm, file = 'csv/cleaned_data_norm.csv', row.names = FALSE)
+```
+
+## ¿Qué variables se correlacionan más con la presencia de PCOS?
+
+Para esta primera prueba estadística, deberemos seleccionar las variables que nos interesa relacionar. En este caso todas las variables menos las que determinan los índices (fila y número del informe del paciente).
+Crearemos la matrix de correlación a partir del dataset y se hará una correlación de Pearson.
+Se presentará el resultado en un gráfico donde solamente aparecerán las correlaciones significativas que se presentarán en color en función del grado de correlación y su positividad o negatividad.
+<p class="text-danger">Para esta prueba cogeremos alpha = 0.05.</p>
+```{r, fig.height=20, fig.width=20}
+cor_matrix <- rcorr(as.matrix(df_norm[,c(3:42)]), type = c("pearson"))
+corrplot(cor_matrix$r, method = "number", type="upper", order="original", 
+         p.mat = cor_matrix$P, sig.level = 0.05, insig = "blank")
+```
+Vemos que las variables que más correlacionan significativamente con la presencia de PCOS son:
+<strong>- número de folículo en el ovario derecho: 0.65
+- número de folículos en el ovario izquierdo: 0.6
+- oscurecimiento de la piel: 0.48
+- crecimiento de pelo: 0.46
+- aumento de peso: 0.44</strong>
+
+## Modelo de regresión lineal
+
+Realizaremos un modelo de regresión lineal para determinar qué variables influyen más a la hora de tener o no PCOS.
+Primero, transformaremos la variable que informa de la presencia o la ausencia de PCOS a lógica.
+```{r}
+df_norm$PCOS..Y.N.cat <- as.logical(df_norm$PCOS..Y.N.) 
+```
+
+A continuación, definiremos distintos modelos con las variables que hemos visto en el apartado anterior que correlacionaban más con la presencia de PCOS.
+```{r}
+# Regresores cuantitativos
+num_follicle_r = df_norm$Follicle.No...R.
+num_follicle_l = df_norm$Follicle.No...L.
+skin_dark = df_norm$Skin.darkening..Y.N.
+hair_growth = df_norm$hair.growth.Y.N.
+weight_gain = df_norm$Weight.gain.Y.N.
+
+# Variable a predecir
+pcos = df_norm$PCOS..Y.N.cat
+
+# Definición de los modelos
+model1 <- lm(pcos ~ num_follicle_r + num_follicle_l + skin_dark, data = df_norm)
+model2 <- lm(pcos ~ num_follicle_r + num_follicle_l + hair_growth, data = df_norm)
+model3 <- lm(pcos ~ skin_dark + hair_growth + weight_gain, data = df_norm)
+model4 <- lm(pcos ~ num_follicle_r + num_follicle_l + weight_gain, data = df_norm)
+model5 <- lm(pcos ~ num_follicle_r + weight_gain + hair_growth + skin_dark, data = df_norm)
+```
+
+Ahora representaremos los diferentes modelos con una tabla que nos indique el coeficiente de determinación de cada uno. Escogeremos el que mayor coeficiente de determinación obtenga.
+```{r}
+# Tabla con los coeficientes de determinación de cada modelo
+tabla.coeficientes <- matrix(c(1, summary(model1)$r.squared,
+                               2, summary(model2)$r.squared,
+                               3, summary(model3)$r.squared,
+                               4, summary(model4)$r.squared,
+                               5, summary(model5)$r.squared),
+                             ncol = 2, byrow = TRUE)
+colnames(tabla.coeficientes) <- c("Modelo", "R^2")
+tabla.coeficientes
+```
+
+<p class="text-info">Vemos que el modelo con mayor coeficiente de determinación es el modelo 5, con un 0.57, lo cual no es un coeficiente muy alto, pero lo probaremos a continuación.</p>
+Determinamos los valores de las variables presentes en el modelo y probaremos el modelo para saber si una persona con estas características tiene alta probabilidad de obtener o no PCOS. 
+```{r}
+prediction <- data.frame(num_follicle_r = 12,
+                         weight_gain = 0,
+                         hair_growth = 1,
+                         skin_dark = 0)
+# Predecir el precio
+predict(model5, prediction)
+```
+
+## Modelo de árbol de clasficación: C50
+En este apartado ejecutaremos un modelo de árboles de clasificación (C50) el cual nos ayudará a obtener una serie de reglas que determinarán con qué valores de qué variables existe una alta propabilidad de tener o no PCOS.
+En primer lugar, debemos factorizar la variable de PCOS ya que esa es la que querremos predecir.
+```{r}
+df$PCOS..Y.N. <- factor(df$PCOS..Y.N.,
+                        levels = c(1,0),
+                        labels = c("Yes", "No")) 
+```
+
+Seleccionamos las variables que nos interesan para el modelo supervisado. Eliminaremos la variable de grupo sanguíneo, puesto que desconocemos la asociación de los número con los grupos sanguíneos 
+```{r}
+df_supervised <- df[,c(3:7,9:42)]
+```
+
+A continuación, tenemos que determinar cuál será nuestra variable principal (y) según la cual se hará el modelo. Por otro lado, se tendrán que seleccionar las variables X con las que trataremos de determinar el valor de y.
+```{r}
+set.seed(666)
+y <- df_supervised[,1]    # Nuestra categoría según la cual se hace el modelo es la variable PCOS..Y.N., la primera del dataset.
+X <- df_supervised[,2:39] 
+```
+
+Para realizar un modelo supervisado, debemos separar la muestra y obtener un dataset para el entrenamiento (con el que haremos el modelo) y otro de test (con el que testearemos la eficacia del modelo).
+Para ello debemos mezclar las filas, por si existe algún tipo de orden en el dataset del que disponemos.
+Normalmente se utilizan dos tercios del dataset original para el entrenamiento y un tercio para la prueba.
+```{r}
+indexes = sample(1:nrow(df_supervised), size=floor((2/3)*nrow(df_supervised)))
+trainX<-X[indexes,]
+trainy<-y[indexes]
+testX<-X[-indexes,]
+testy<-y[-indexes]
+```
+
+A continuación veremos qué contiene cada dataset y qué proporción de Sí y No tienen tanto el test como el train. 
+```{r}
+summary(trainX)
+```
+
+```{r}
+summary(trainy)
+```
+
+```{r}
+summary(testX)
+```
+
+```{r}
+summary(testy)
+```
+
+Ejecutamos el modelo en el dataset de entrenamiento y obtenemos las reglas.
+```{r}
+modelo <- C50::C5.0(trainX, trainy,rules=TRUE )
+summary(modelo)
+```
+Finalmente, obtenemos 16 reglas, y para cada uno obtenemos la validez de la regla así como el procentaje de aportación de las variables más influyentes en el diagnóstico de PCOS. De estas reglas describiremos las que tienen una validez superir al 96%:
+
+<strong>Regla 1 => Si la persona ha ganado peso y tiene más de 8 folículos en el ovario derecho, es posible que tenga PCOS (98% de validez). 
+
+Regla 2 => si la persona lleva menos de 14 años casada, ha ganado peso, tiene más de 4 folículo en el ovario derecho y su irregularidad en el ciclo es mayor a dos días, entonces es probable que tenga PCOS (validez de 98%).
+
+Regla 3 => Si la persona no ha ganado peso, ni le ha crecido el pelo, ni tiene acné, no hace ejercicio regularmente y tiene menos de 13 folículos en el ovario derecho, tiene baja probabilidad de tener PCOS (validez de 98%).
+
+Regla 4 => Si la cadera de la persona mide más de 32 pulgadas (81 cm), no ha ganado peso, no tiene crecimiento ed pelo, no hace ejercicio regularmente y no tiene más de 12 folículos, tiene baja probabilidad de tener PCOS (validez de 98%).
+
+Regla 5 => Si la persona tiene una desregulación del ciclo menor a dos días, no tiene crecimiento de pelo, tiene menos de 10 folículos en el ovario izquierdo y menos de 9 en el derecho, tiene baja probabilidad de tener PCOS (validez de 98%).
+
+Regla 6 => Si la persona ha estado casada más de 3 años y medio, tiene niveles de LH más bajos que 4.76, y tiene menos de 10 folículos enel ovario izquierdo y menos de 9 en el derecho, tiene baja probabilidad de tener PCOS (validez de 97%).</strong>
+
+A continuación se muestra el árbol de clasificación que representa el modelo desarrollado. En él podemos qué valore sde cada variable influyen en la presencia o ausencia de PCOS en cada caso.
+```{r, fig.height=25, fig.width=25}
+modelo <- C50::C5.0(trainX, trainy)
+plot(modelo, cex=150)
+```
+
+Ahora verificaremos la precisión del modelo con la muestra de prueba (test)
+```{r}
+predicted_model <- predict(modelo, testX, type="class" )
+print(sprintf("La precisión del árbol es: %.4f %%",100*sum(predicted_model == testy) / length(predicted_model)))
+```
+
+# Conclusiones
+Durante esta práctica se han aplicado tres métodos estadísticos. 
+Por una parte, una evaluación de los <strong> índices de correlación </strong> entre las variables de la muestra. De ellas se han podido extraer qué variables influyen más en la presencia o la ausencia de PCOS. La visualización de esta matriz ha sido mediante un gráfico en el cual veíamos solamente los valores de correlación significativos.
+Por otra parte, se ha realizado un <strong> modelo de regresión lineal </strong> en el que hemos podido ver de la misma manera, de entre las variables que más se correlacionan con la presencia de PCOS, qué combinación determina de la mejor manera la presencia o la ausencia de PCOS. La visualización de estos modelos ha sido mediante una tabla en la que podíamos ver el coeficiente de deteminación de cada uno de los modelos con una prueba final del modelo con mejor R^2.
+Por último, se ha realizado un <strong> modelo de árbol de clasificación </strong> con el paquete C50. En él hemos podido ver qué valores de qué variables determinaban o no la presencia o la ausencia de PCOS. A partir de este modelo hemos podido sacar una serie de reglas, finalmente representadas mediante un árbol de clasificación.
+
+Es cierto que muchos de los valores finales de los modelos, por ejemplo, el análisis de correlación y el modelo de regresión lineal, no han dado resultados muy prometedores en cuanto a la precisión del diagnóstico de PCOS. Para ello, en futuros trabajos sería necesaria tener una muestra más amplia. Además de tener más claridad en las variables ya que muchas de ellas dependen del momento en el que se ha hecho el análisis puesto que pueden variar mucho en función del tiempo: por ejemplo, los niveles hormonales, sobre todo de FSH y LH varían en función del momento del ciclo en el que se encuentre la paciente. Es por eso que, en futuros trabajos, sería interesante obtener varios registros para cada paciente y saber en qué momento del ciclo han sido extraídos, para que los modelos sean más precisos y ajustados a la realidad y las variables médicas habituales.
+
+Lo que no cabe duda es que, el número de folículos influye en el diagnóstico de este síndrome ya que estas variables han sido significativamente representativas de la presencia de PCOS en caso de tener valores elevados; lo cual cuadra con los procedimientos actuales para el diagnóstico del síndrome hoy en día. 
