@@ -8,7 +8,8 @@ La práctica ha sido realizada de manera individual por Helene Jordan Parize.
 
 ## Ficheros del repositorio
 - src/main.R: código de ejecución de web scraping.
-- pdf/hjordanp_prac2.pdf: respuesta a los puntos de enunciado de la Práctica 1.
+- files/hjordanp_prac2.pdf: respuesta a los puntos de enunciado de la Práctica 1.
+- files/hjordanp_prac2.html: respuesta a los puntos de enunciado de la Práctica 1.
 - csv/initial_data.csv: archivo csv con los datos iniciales descargados del repositorio Kaggle. 
 - csv/cleaned_data.csv: archivo csv con los datos tratados.
 - csv/cleaned_data_norm.csv: archivo csv con los datos tratados normalizados.
